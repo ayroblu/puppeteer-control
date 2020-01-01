@@ -1,4 +1,6 @@
 const puppeteer = require("puppeteer-core");
+const { autocompleteQuestion } = require("./prompt");
+const { isElementVisible } = require("../utils");
 
 async function openDrive() {
   // chrome://version/ - executablePath
@@ -24,6 +26,52 @@ async function openDrive() {
   await page.goto("https://drive.google.com");
   return page;
 }
+async function waitForVisibleSelector(page) {
+  await page.waitForNavigation();
+  await page.waitForFunction(() => {
+    function isElementVisible(element) {
+      return !!(
+        element &&
+        (element.offsetWidth ||
+          element.offsetHeight ||
+          element.getClientRects().length)
+      );
+    }
+    return (
+      Array.from(document.querySelectorAll("[role=gridcell]")).filter(
+        isElementVisible
+      ).length > 0
+    );
+  });
+}
+async function openDriveFolder(drivePage) {
+  await waitForVisibleSelector(drivePage);
+  const folders = (
+    await Promise.all(
+      Array.from(await drivePage.$$("[role=gridcell]")).map(async cell => ({
+        cell,
+        visible: await isElementVisible(cell),
+      }))
+    )
+  )
+    .filter(({ visible }) => visible)
+    .map(({ cell }) => cell);
+  const folderAndTexts = await Promise.all(
+    folders.map(async folder => ({
+      folder,
+      text: await folder.evaluate(node => node.innerText),
+    }))
+  );
+  const tvShow = await autocompleteQuestion({
+    message: "Select the folder you want to open:",
+    items: folderAndTexts.map(({ text }) => text),
+  });
+  await Promise.all(
+    folderAndTexts
+      .filter(({ text }) => text === tvShow)
+      .map(({ folder }) => folder.click({ clickCount: 2 }))
+  );
+}
 async function openTvShow() {
   const drivePage = await openDrive();
   await drivePage.waitForSelector("[role=gridcell]", { visible: true });
@@ -39,18 +87,38 @@ async function openTvShow() {
       .filter(({ text }) => text === "TV Shows")
       .map(({ folder }) => folder.click({ clickCount: 2 }))
   );
-  await drivePage.waitForNavigation();
-  await drivePage.waitForSelector("[role=gridcell]", { visible: true });
+  await waitForVisibleSelector(drivePage);
   {
-    const folders = await drivePage.$$("[role=gridcell]");
+    const folders = (
+      await Promise.all(
+        Array.from(await drivePage.$$("[role=gridcell]")).map(async cell => ({
+          cell,
+          visible: await isElementVisible(cell),
+        }))
+      )
+    )
+      .filter(({ visible }) => visible)
+      .map(({ cell }) => cell);
     const folderAndTexts = await Promise.all(
       folders.map(async folder => ({
         folder,
         text: await folder.evaluate(node => node.innerText),
       }))
     );
-    console.log(folderAndTexts.map(({ text }) => text));
+    const tvShow = await autocompleteQuestion({
+      message: "Select the folder you want to open:",
+      items: folderAndTexts.map(({ text }) => text),
+    });
+    await Promise.all(
+      folderAndTexts
+        .filter(({ text }) => text === tvShow)
+        .map(({ folder }) => folder.click({ clickCount: 2 }))
+    );
   }
+  return drivePage;
 }
-// Array.from(document.querySelectorAll('[role=gridcell]')).map(e => e.innerText)
-openTvShow().catch(console.error);
+// openTvShow().catch(console.error);
+
+module.exports = {
+  openTvShow,
+};
