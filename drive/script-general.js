@@ -1,3 +1,3 @@
 const { openPages } = require("./general");
 
-module.exports = { openPages };
+openPages().catch(console.err);
