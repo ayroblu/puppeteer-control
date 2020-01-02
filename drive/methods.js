@@ -12,7 +12,6 @@ async function openDrive() {
       executablePath:
         "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
       userDataDir: "./userDataDir",
-      // userDataDir: "/Users/blu/Library/Application Support/Google/Chrome",
 
       // This disables the session restore thing
       // https://raspberrypi.stackexchange.com/questions/68734/how-do-i-disable-restore-pages-chromium-didnt-shut-down-correctly-prompt
